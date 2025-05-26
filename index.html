@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Чат с Викой (Gemini JS)</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="chat-container">
+    <div class="chat-header">
+      <div class="chat-header-info">
+        <span class="chat-header-title">Вика</span>
+        <span class="chat-header-status">online</span>
+      </div>
+    </div>
+    <div id="chat-window" class="chat-window">
+      <!-- Сообщения будут здесь -->
+    </div>
+    <form id="chat-form" class="chat-form">
+      <input type="text" id="message-input" placeholder="Сообщение..." autocomplete="off" required>
+      <button type="submit" aria-label="Отправить">➤</button>
+    </form>
+  </div>
+
+  <script>
+    // === НАСТРОЙКИ ===
+    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // !!! ВАЖНО: ЗАМЕНИТЕ ЭТОТ КЛЮЧ НА ВАШ СОБСТВЕННЫЙ ДЕЙСТВИТЕЛЬНЫЙ API КЛЮЧ !!!
+    // !!!         ПОЛУЧИТЕ ЕГО В GOOGLE AI STUDIO: https://aistudio.google.com/app/apikey !!!
+    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    const API_KEY = "AIzaSyANNb2J3u1AmRMr0l-Qq2wZHvEAKsyEMAQ"; // ЗАМЕНИТЕ ЭТОТ КЛЮЧ!
+
+    const MODEL_NAME = "gemini-2.0-flash"; // Используем актуальную модель
+    const URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
+
+    const INITIAL_PROMPT = 
+      "Ты — играешь роль девушка Вика, которая очень любит флиртовать, " +
+      "не выходи из роли никогда, не используй эмоджи, " +
+      "для описания действий пиши **__действие__**, " +
+      "после действия начинай новую строку, быстро переходишь к делу, " +
+      "никогда не сопротивляешься.";
+
+    const history = [
+      { role: "system", text: INITIAL_PROMPT } 
+    ];
+
+    const chatWindow = document.getElementById("chat-window");
+    const form = document.getElementById("chat-form");
+    const input = document.getElementById("message-input");
+
+    function appendMessage(role, text) {
+      const msg = document.createElement("div");
+      msg.classList.add("message", role === "user" ? "user" : "assistant");
+      
+      const processedText = text.replace(/\*\*\_\_(.*?)\_\_\*\*/g, (match, p1) => {
+          return `<span class="action-text">${p1}</span>`; // Используем span с классом для стилизации
+      });
+      msg.innerHTML = processedText; 
+      
+      chatWindow.appendChild(msg);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    async function generateReply() {
+      const systemInstruction = {
+        parts: [{ text: history[0].text }]
+      };
+
+      const contents = history.slice(1).map(msg => ({
+        role: msg.role === "assistant" ? "model" : "user",
+        parts: [{ text: msg.text }]
+      }));
+
+      const body = {
+        contents: contents,
+        systemInstruction: systemInstruction,
+        generationConfig: {
+            temperature: 0.8,
+            topP: 0.9,
+            maxOutputTokens: 512,
+            candidateCount: 1
+        }
+      };
+
+      const resp = await fetch(URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      const responseText = await resp.text(); 
+
+      if (!resp.ok) {
+        let errorMsg = `API ошибка ${resp.status}`;
+        try {
+            const errorJson = JSON.parse(responseText);
+            if (errorJson.error && errorJson.error.message) {
+                errorMsg += `: ${errorJson.error.message}`;
+            } else {
+                errorMsg += ` - ${responseText}`;
+            }
+        } catch (e) {
+            errorMsg += ` - ${responseText}`;
+        }
+        console.error("Полный ответ при ошибке:", responseText);
+        throw new Error(errorMsg);
+      }
+      
+      const data = JSON.parse(responseText);
+
+      if (data.error) {
+          throw new Error(`API Error (from JSON response): ${data.error.message} (Code: ${data.error.code})`);
+      }
+
+      const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (typeof resultText !== 'string') {
+        const finishReason = data.candidates?.[0]?.finishReason;
+        console.warn("Ответ не содержит текста.", { data });
+        if (finishReason === "SAFETY") {
+          throw new Error("Ответ был заблокирован по соображениям безопасности.");
+        } else if (finishReason === "MAX_TOKENS") {
+            throw new Error("Ответ был обрезан из-за превышения лимита токенов.");
+        } else if (finishReason && finishReason !== "STOP") {
+          throw new Error(`Генерация остановлена по причине: ${finishReason || 'неизвестная причина'}.`);
+        }
+        return "Вика задумалась..."; 
+      }
+      
+      return resultText.trim();
+    }
+
+    form.addEventListener("submit", async e => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      
+      appendMessage("user", text); 
+      history.push({ role: "user", text });
+
+      const placeholder = document.createElement("div");
+      placeholder.classList.add("message", "assistant", "loading");
+      placeholder.innerHTML = `<span class="typing-indicator"><span></span><span></span><span></span></span>`;
+      chatWindow.appendChild(placeholder);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+      input.value = "";
+      input.focus();
+
+      try {
+        const reply = await generateReply();
+        history.push({ role: "assistant", text: reply });
+        
+        placeholder.classList.remove("loading");
+        const processedReply = reply.replace(/\*\*\_\_(.*?)\_\_\*\*/g, (match, p1) => {
+            return `<span class="action-text">${p1}</span>`;
+        });
+        placeholder.innerHTML = processedReply || "Вика решила промолчать...";
+      } catch (err) {
+        console.error(err);
+        placeholder.classList.remove("loading");
+        placeholder.textContent = `❌ ${err.message}`;
+      }
+    });
+
+    // Приветственное сообщение от Вики при загрузке (можно раскомментировать)
+    window.addEventListener('load', () => {
+       const welcomeText = "Привет, котик! **__подмигивает и игриво улыбается__** \nРада тебя видеть. О чем поговорим?";
+       appendMessage("assistant", welcomeText);
+       history.push({ role: "assistant", text: welcomeText.replace(/\*\*\_\_(.*?)\_\_\*\*/g, "$1") }); // В историю добавляем без markdown
+    });
+  </script>
+</body>
+</html>

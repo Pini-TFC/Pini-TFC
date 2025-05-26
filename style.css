@@ -1,0 +1,264 @@
+/* START OF FILE style.css */
+:root {
+  --app-bg: #1e1f22; /* Общий фон приложения (очень темный) */
+  --header-footer-bg: #2b2d31; /* Фон хедера и футера */
+  --chat-window-bg: #222327; /* Фон окна чата (темный, для имитации) */
+  --chat-window-bg-gradient-start: rgba(40, 35, 55, 0.7);
+  --chat-window-bg-gradient-end: rgba(30, 32, 40, 0.9);
+
+  --incoming-msg-bg: #2f3136; /* Фон входящих сообщений */
+  --outgoing-msg-bg-start: #7b4e91; /* Градиент для исходящих - начало (фиолетовый) */
+  --outgoing-msg-bg-end: #b75c8f;   /* Градиент для исходящих - конец (розово-фиолетовый) */
+  
+  --text-primary: #dcddde; /* Основной текст (светлый) */
+  --text-secondary: #72767d; /* Вторичный текст (статус, время - более тусклый) */
+  --text-input-bg: #383a40; /* Фон поля ввода */
+  --text-input-placeholder: #6a6d73;
+  --text-input-border: transparent; /* Убираем видимую границу у инпута */
+
+  --icon-color: #b9bbbe; /* Цвет иконок */
+  --button-send-bg: #5865f2; /* Яркий цвет для кнопки отправки, если бы она была как в Discord/TG */
+  --button-send-hover-bg: #4752c4;
+
+  --action-text-color: #a2b3c7; /* Цвет для текста действий */
+  --error-text-color: #faa6a6;
+  --loading-dot-color: #6a6d73;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  background: var(--app-bg);
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+}
+
+.chat-container {
+  width: 380px;
+  max-width: 100%;
+  height: 90vh; /* Немного увеличим высоту */
+  max-height: 750px;
+  margin: 1rem auto;
+  background: var(--header-footer-bg); /* Фон контейнера теперь как у хедера/футера */
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chat-header {
+  background: var(--header-footer-bg);
+  color: var(--text-primary);
+  padding: 12px 18px;
+  /* border-bottom: 1px solid #232528; /* Тонкая граница, если нужна */
+  display: flex;
+  align-items: center;
+  flex-shrink: 0; /* Предотвратить сжатие хедера */
+}
+
+.chat-header-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-header-title {
+  font-size: 1.05rem; /* Чуть меньше */
+  font-weight: 500;
+}
+
+.chat-header-status {
+  font-size: 0.75rem; /* Чуть меньше */
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.chat-window {
+  flex: 1;
+  padding: 15px 15px; /* Увеличим вертикальный паддинг */
+  overflow-y: auto;
+  /* Имитация сложного фона через градиент поверх основного цвета */
+  background-color: var(--chat-window-bg);
+  background-image: 
+    /* linear-gradient(var(--chat-window-bg-gradient-start), var(--chat-window-bg-gradient-end)), */ /* Можно раскомментировать для легкого градиента */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='50' viewBox='0 0 100 100'%3E%3Crect x='0' y='0' width='10' height='10' fill-opacity='0.03' fill='%23FFF'/%3E%3Crect x='10' y='10' width='10' height='10' fill-opacity='0.02' fill='%23AAA'/%3E%3C/svg%3E"); /* Очень легкий паттерн */
+  background-blend-mode: overlay;
+}
+
+.chat-window::-webkit-scrollbar {
+  width: 7px;
+}
+.chat-window::-webkit-scrollbar-thumb {
+  background-color: #3a3d42;
+  border-radius: 4px;
+}
+.chat-window::-webkit-scrollbar-track {
+  background-color: var(--chat-window-bg);
+  border-left: 1px solid var(--header-footer-bg); /* Граница для трека */
+}
+
+.message {
+  margin-bottom: 12px; /* Немного больше отступ */
+  padding: 9px 14px;
+  border-radius: 18px; /* Базовый радиус */
+  max-width: 80%; /* Чуть шире */
+  word-wrap: break-word;
+  line-height: 1.45;
+  font-size: 0.92rem; /* Чуть меньше базовый шрифт сообщения */
+  position: relative;
+  color: var(--text-primary); /* Убедимся, что цвет текста белый/светлый */
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.message.user {
+  background: linear-gradient(135deg, var(--outgoing-msg-bg-start), var(--outgoing-msg-bg-end));
+  align-self: flex-end;
+  margin-left: auto;
+  border-radius: 18px 18px 6px 18px; /* "Хвостик" справа внизу */
+}
+
+.message.assistant {
+  background: var(--incoming-msg-bg);
+  align-self: flex-start;
+  margin-right: auto;
+  border-radius: 18px 18px 18px 6px; /* "Хвостик" слева внизу */
+}
+/* Цвет текста ошибки */
+.message.assistant:not(.loading) > *:not(span):not(.action-text):first-child:not(:empty):not([class^="typing-indicator"]) {
+  /* Это для сообщений с ошибкой, если они не loading и не пустые */
+}
+.message.assistant:not(.loading) > *:first-child:not(:empty):not([class^="typing-indicator"])::before {
+  /* Для сообщений с ошибкой, чтобы сам текст ошибки был нужного цвета */
+  /* Например, если сообщение об ошибке просто текст, а не HTML */
+}
+/* Чтобы текст ошибки в placeholder.textContent был красным */
+.message.assistant[data-error="true"] { /* Добавим атрибут в JS для ошибки */
+    color: var(--error-text-color);
+}
+
+
+.message .action-text {
+  font-style: italic;
+  color: var(--action-text-color);
+  display: block;
+  margin-top: 5px;
+  font-size: 0.85rem; /* Чуть меньше */
+}
+.message .action-text:first-child {
+    margin-top: 0;
+}
+
+.chat-form {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--header-footer-bg);
+  border-top: 1px solid #232528; /* Разделитель */
+  flex-shrink: 0; /* Предотвратить сжатие формы */
+}
+
+.chat-form input {
+  flex: 1;
+  padding: 10px 16px;
+  border: none; /* Убираем стандартную границу */
+  border-radius: 20px; /* Скругление как на скриншоте */
+  font-size: 0.95rem;
+  background-color: var(--text-input-bg); /* Темный фон для инпута */
+  color: var(--text-primary); /* Цвет вводимого текста */
+  margin-right: 10px;
+  outline: none;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.1); /* Легкая внутренняя тень */
+}
+.chat-form input::placeholder {
+  color: var(--text-input-placeholder);
+  font-weight: 400;
+}
+.chat-form input:focus {
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.1), 0 0 0 2px rgba(88, 101, 242, 0.3); /* Подсветка при фокусе */
+}
+
+.chat-form button {
+  padding: 0;
+  width: 38px; /* Чуть меньше */
+  height: 38px;
+  background: transparent; /* Прозрачный фон для кнопки-иконки */
+  color: var(--icon-color); /* Цвет для символа "➤" */
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.5rem; /* Увеличим символ, чтобы лучше было видно */
+  line-height: 1; /* Для центрирования символа */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+.chat-form button:hover {
+  color: var(--text-primary); /* Светлее при наведении */
+  background-color: rgba(255,255,255,0.05); /* Легкий фон при наведении */
+}
+/* Если захотите сделать кнопку как в TG/Discord когда есть текст: */
+/* .chat-form input:not(:placeholder-shown) + button {
+  background: var(--button-send-bg);
+  color: white;
+}
+.chat-form input:not(:placeholder-shown) + button:hover {
+  background: var(--button-send-hover-bg);
+} */
+
+.message.assistant.loading {
+  padding: 12px 15px;
+  background: var(--incoming-msg-bg); /* Такой же фон, как у обычного сообщения ассистента */
+}
+.typing-indicator span {
+  background-color: var(--loading-dot-color); /* Цвет точек загрузки */
+}
+/* keyframes typing - остается без изменений */
+@keyframes typing {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.7); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+@media (max-width: 480px) {
+  body {
+    align-items: flex-start;
+  }
+  .chat-container {
+    margin: 0;
+    height: 100%; /* На весь экран по высоте */
+    max-height: none;
+    width: 100%;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .chat-header {
+    padding: 10px 15px;
+  }
+  .chat-header-title {
+    font-size: 1rem;
+  }
+  .chat-window {
+    padding: 10px;
+  }
+  .message {
+    font-size: 0.9rem;
+    max-width: 85%; /* Чуть шире на мобильных */
+  }
+  .chat-form {
+    padding: 8px 10px;
+  }
+  .chat-form input {
+    padding: 9px 14px;
+    font-size: 0.9rem;
+  }
+  .chat-form button {
+    width: 36px;
+    height: 36px;
+    font-size: 1.4rem;
+  }
+}
+/* END OF FILE style.css */
